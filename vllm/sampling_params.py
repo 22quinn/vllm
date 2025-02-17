@@ -12,6 +12,7 @@ from typing_extensions import Annotated
 
 from vllm.logger import init_logger
 from vllm.logits_process import LogitsProcessor
+from vllm.transformers_utils.tokenizer import AnyTokenizer
 
 logger = init_logger(__name__)
 
@@ -181,7 +182,6 @@ class SamplingParams(
     seed: Optional[int] = None
     stop: Optional[Union[str, List[str]]] = None
     stop_token_ids: Optional[List[int]] = None
-    bad_words: Optional[List[str]] = None
     ignore_eos: bool = False
     max_tokens: Optional[int] = 16
     min_tokens: int = 0
@@ -209,6 +209,10 @@ class SamplingParams(
     guided_decoding: Optional[GuidedDecodingParams] = None
     logit_bias: Optional[Dict[int, float]] = None
     allowed_token_ids: Optional[List[int]] = None
+
+    # Fields used for bad words
+    bad_words: Optional[List[str]] = None
+    _bad_words_token_ids: List[List[int]] = list()
 
     @staticmethod
     def from_optional(
@@ -439,6 +443,9 @@ class SamplingParams(
                 if not self.ignore_eos:
                     eos_ids.update(self.stop_token_ids)
                     self.stop_token_ids = list(eos_ids)
+
+    def update_from_tokenizer(self, tokenizer: AnyTokenizer) -> None:
+
 
     @cached_property
     def sampling_type(self) -> SamplingType:

@@ -10,6 +10,7 @@ from vllm.lora.request import LoRARequest
 from vllm.multimodal import MultiModalKwargs
 from vllm.multimodal.inputs import PlaceholderRange
 from vllm.sampling_params import SamplingParams
+from vllm.transformers_utils.tokenizer import AnyTokenizer
 from vllm.v1.metrics.stats import SchedulerStats
 from vllm.v1.outputs import LogprobsLists, LogprobsTensors
 
@@ -59,6 +60,7 @@ class EngineCoreRequest(
     eos_token_id: Optional[int]
     arrival_time: float
     lora_request: Optional[LoRARequest]
+    tokenizer: Optional[AnyTokenizer]
 
 
 class EngineCoreEventType(enum.IntEnum):

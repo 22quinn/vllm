@@ -16,6 +16,7 @@ from vllm.outputs import RequestOutput
 from vllm.pooling_params import PoolingParams
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sampling_params import SamplingParams
+from vllm.transformers_utils.tokenizer import AnyTokenizer
 from vllm.transformers_utils.tokenizer_group import (
     BaseTokenizerGroup, init_tokenizer_from_configs)
 from vllm.usage.usage_lib import UsageContext
@@ -184,3 +185,9 @@ class LLMEngine:
                             f"found type: {type(tokenizer_group)}")
 
         return tokenizer_group
+    
+    def get_tokenizer(
+            self,
+            lora_request: Optional[LoRARequest] = None
+        ) -> AnyTokenizer:
+        return self.get_tokenizer_group().get_lora_tokenizer(lora_request)

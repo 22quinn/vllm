@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, List, Optional, Union
 
 from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams
+from vllm.transformers_utils.tokenizer import AnyTokenizer
 from vllm.v1.engine import (EngineCoreEvent, EngineCoreEventType,
                             EngineCoreRequest, FinishReason)
 from vllm.v1.utils import ConstantList
@@ -28,12 +29,14 @@ class Request:
         eos_token_id: Optional[int],
         arrival_time: float,
         lora_request: Optional[LoRARequest] = None,
+        tokenizer: Optional[AnyTokenizer] = None,
     ) -> None:
         self.request_id = request_id
         self.sampling_params = sampling_params
         # Because of LoRA, the eos token id can be different for each request.
         self.eos_token_id = eos_token_id
         self.lora_request = lora_request
+        self.tokenizer = tokenizer
 
         self.status = RequestStatus.WAITING
         self.events: List[EngineCoreEvent] = []
@@ -77,6 +80,7 @@ class Request:
             eos_token_id=request.eos_token_id,
             arrival_time=request.arrival_time,
             lora_request=request.lora_request,
+            tokenizer=request.tokenizer,
         )
 
     def queued(self, timestamp: Optional[float] = None) -> None:

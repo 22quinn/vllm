@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from vllm.multimodal import MultiModalKwargs
     from vllm.multimodal.base import PlaceholderRange
     from vllm.sampling_params import SamplingParams
+    from vllm.transformers_utils.tokenizer import AnyTokenizer
     from vllm.v1.request import Request
 
 
@@ -24,6 +25,7 @@ class NewRequestData:
     block_ids: List[int]
     num_computed_tokens: int
     lora_request: Optional["LoRARequest"]
+    tokenizer: Optional["AnyTokenizer"]
 
     @classmethod
     def from_request(
@@ -43,6 +45,7 @@ class NewRequestData:
             block_ids=block_ids,
             num_computed_tokens=num_computed_tokens,
             lora_request=request.lora_request,
+            tokenizer=request.tokenizer,
         )
 
 

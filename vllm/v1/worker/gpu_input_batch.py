@@ -11,6 +11,7 @@ import torch
 from vllm.lora.request import LoRARequest
 from vllm.multimodal import MultiModalKwargs
 from vllm.sampling_params import SamplingParams, SamplingType
+from vllm.transformers_utils.tokenizer import AnyTokenizer
 from vllm.v1.sample.metadata import SamplingMetadata
 from vllm.v1.worker.block_table import BlockTable
 
@@ -39,6 +40,8 @@ class CachedRequestState:
     mrope_position_delta: Optional[int] = None
 
     lora_request: Optional[LoRARequest] = None
+
+    tokenizer: Optional[AnyTokenizer] = None
 
     @property
     def num_tokens(self) -> int:
@@ -195,6 +198,9 @@ class InputBatch:
         self.logit_bias: List[Optional[Dict[int,
                                             float]]] = [None] * max_num_reqs
 
+        self.bad_words: List[Optional[List[str]]] = [None] * max_num_reqs
+        self.tokenizer: List[Optional[AnyTokenizer]] = [None] * max_num_reqs
+
     def add_request(
         self,
         request: "CachedRequestState",
@@ -264,6 +270,10 @@ class InputBatch:
             self.num_prompt_logprobs[req_id] = sampling_params.prompt_logprobs
         if sampling_params.logit_bias is not None:
             self.logit_bias[req_index] = sampling_params.logit_bias
+        if sampling_params.bad_words is not None:
+            self.bad_words[req_index] = sampling_params.bad_words
+        if request.tokenizer is not None:
+            self.tokenizer[req_index] = request.tokenizer
 
         # Add request lora ID
         if request.lora_request:
@@ -306,6 +316,8 @@ class InputBatch:
             self.request_lora_mapping[req_index] = 0
 
         self.logit_bias[req_index] = None
+        self.bad_words[req_index] = None
+        self.tokenizer[req_index] = None
         return req_index
 
     def clear(self) -> None:
@@ -326,6 +338,8 @@ class InputBatch:
         self.lora_id_to_lora_request.clear()
         self.lora_id_to_request_ids.clear()
         self.logit_bias = [None] * self.max_num_reqs
+        self.bad_words = [None] * self.max_num_reqs
+        self.tokenizer = [None] * self.max_num_reqs
 
     def condense(self, empty_req_indices: List[int]) -> None:
         if self.num_reqs == 0:
@@ -383,6 +397,8 @@ class InputBatch:
                 last_req_index]
 
             self.logit_bias[empty_index] = self.logit_bias[last_req_index]
+            self.bad_words[empty_index] = self.bad_words[last_req_index]
+            self.tokenizer[empty_index] = self.tokenizer[last_req_index]
 
             # Decrement last_req_index since it is now empty.
             last_req_index -= 1
@@ -456,6 +472,8 @@ class InputBatch:
             stop_token_ids=self.stop_token_ids[:self.num_reqs],
             no_penalties=self.no_penalties,
             logit_bias=self.logit_bias[:self.num_reqs],
+            bad_words=self.bad_words[:self.num_reqs],
+            tokenizer=self.tokenizer[:self.num_req],
         )
 
     def _make_prompt_token_ids_tensor(self) -> torch.Tensor:

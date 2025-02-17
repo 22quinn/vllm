@@ -54,6 +54,46 @@ def encode_tokens(
     return tokenizer.encode(text)
 
 
+class CachedTokenizer(AnyTokenizer):
+    def __init__(self, tokenizer: AnyTokenizer) -> None:
+        self._all_special_ids = set(tokenizer.all_special_ids)
+        self._all_special_tokens_extended = tokenizer.all_special_tokens_extended
+        self._all_special_tokens = set(tokenizer.all_special_tokens)
+        self._tokenizer_vocab = tokenizer.get_vocab()
+        self._tokenizer_len = len(tokenizer)
+
+        self._max_token_id = max(self._tokenizer_vocab.values())
+        # Some tokenizers (e.g., QwenTokenizer) have special tokens that
+        # are added and included in the implementation of the vocab_size
+        # property, but not in get_vocab(); if there is an implementation
+        # of vocab size, we should take the greater value.
+        if hasattr(tokenizer, "vocab_size"):
+            with contextlib.suppress(NotImplementedError):
+                self._max_token_id = max(self.max_token_id, tokenizer.vocab_size)
+
+    @property
+    def all_special_ids(self):
+        return self._all_special_ids
+
+    @property
+    def all_special_tokens(self):
+        return self._all_special_tokens
+
+    @property
+    def all_special_tokens_extended(self):
+        return self._all_special_tokens_extended
+
+    @property
+    def max_token_id(self):
+        return self._max_token_id
+
+    def get_vocab(self):
+        return self._tokenizer_vocab
+
+    def __len__(self):
+        return self._tokenizer_len
+
+
 def get_cached_tokenizer(tokenizer: AnyTokenizer) -> AnyTokenizer:
     """Get tokenizer with cached properties.
 
@@ -62,49 +102,8 @@ def get_cached_tokenizer(tokenizer: AnyTokenizer) -> AnyTokenizer:
     By default, transformers will recompute multiple tokenizer properties
     each time they are called, leading to a significant slowdown. This
     function caches these properties for faster access."""
-
-    tokenizer_all_special_ids = set(tokenizer.all_special_ids)
-    tokenizer_all_special_tokens_extended = (
-        tokenizer.all_special_tokens_extended)
-    tokenizer_all_special_tokens = set(tokenizer.all_special_tokens)
-    tokenizer_vocab = tokenizer.get_vocab()
-    tokenizer_len = len(tokenizer)
-
-    max_token_id = max(tokenizer_vocab.values())
-    # Some tokenizers (e.g., QwenTokenizer) have special tokens that
-    # are added and included in the implementation of the vocab_size
-    # property, but not in get_vocab(); if there is an implementation
-    # of vocab size, we should take the greater value.
-    if hasattr(tokenizer, "vocab_size"):
-        with contextlib.suppress(NotImplementedError):
-            max_token_id = max(max_token_id, tokenizer.vocab_size)
-
-    class CachedTokenizer(tokenizer.__class__):  # type: ignore
-
-        @property
-        def all_special_ids(self):
-            return tokenizer_all_special_ids
-
-        @property
-        def all_special_tokens(self):
-            return tokenizer_all_special_tokens
-
-        @property
-        def all_special_tokens_extended(self):
-            return tokenizer_all_special_tokens_extended
-
-        @property
-        def max_token_id(self):
-            return max_token_id
-
-        def get_vocab(self):
-            return tokenizer_vocab
-
-        def __len__(self):
-            return tokenizer_len
-
+    cached_tokenizer = CachedTokenizer(tokenizer)
     CachedTokenizer.__name__ = f"Cached{tokenizer.__class__.__name__}"
-
     tokenizer.__class__ = CachedTokenizer
     return tokenizer
 
