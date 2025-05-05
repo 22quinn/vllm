@@ -359,6 +359,7 @@ class TPUModelRunner:
                 mm_inputs=new_req_data.mm_inputs,
                 mm_positions=new_req_data.mm_positions,
                 sampling_params=sampling_params,
+                pooling_params=new_req_data.pooling_params,
                 generator=None,
                 block_ids=new_req_data.block_ids,
                 num_computed_tokens=new_req_data.num_computed_tokens,

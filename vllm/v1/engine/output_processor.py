@@ -80,8 +80,8 @@ class RequestState:
         output_kind: RequestOutputKind,
         prompt: Optional[str],
         prompt_token_ids: list[int],
-        logprobs_processor: LogprobsProcessor,
-        detokenizer: IncrementalDetokenizer,
+        logprobs_processor: Optional[LogprobsProcessor],
+        detokenizer: Optional[IncrementalDetokenizer],
         max_tokens_param: Optional[int],
         arrival_time: float,
         queue: Optional[RequestOutputCollector],
@@ -115,7 +115,7 @@ class RequestState:
         queue: Optional[RequestOutputCollector],
         log_stats: bool,
     ) -> "RequestState":
-        if not request.sampling_params.detokenize:
+        if not request.sampling_params or not request.sampling_params.detokenize:
             tokenizer = None
         return cls(
             request_id=request.request_id,
@@ -123,17 +123,11 @@ class RequestState:
             request_index=request_index,
             lora_name=(request.lora_request.name
                        if request.lora_request is not None else None),
-            output_kind=request.sampling_params.output_kind,
+            output_kind=RequestOutputKind.CUMULATIVE,
             prompt=prompt,
             prompt_token_ids=request.prompt_token_ids,
-            logprobs_processor=LogprobsProcessor.from_new_request(
-                tokenizer=tokenizer,
-                request=request,
-            ),
-            detokenizer=IncrementalDetokenizer.from_new_request(
-                tokenizer=tokenizer,
-                request=request,
-            ),
+            logprobs_processor=None,
+            detokenizer=None,
             max_tokens_param=(request.sampling_params.max_tokens if
                               request.sampling_params is not None else None),
             arrival_time=request.arrival_time,
@@ -175,12 +169,13 @@ class RequestState:
         outputs: list[CompletionOutput],
         finished: bool,
     ) -> RequestOutput:
-
-        if self.output_kind == RequestOutputKind.DELTA:
-            # Side effect: logprobs processor forgets prompt logprobs
-            prompt_logprobs = self.logprobs_processor.pop_prompt_logprobs()
-        else:
-            prompt_logprobs = self.logprobs_processor.prompt_logprobs
+        prompt_logprobs = None
+        if self.logprobs_processor is not None:
+            if self.output_kind == RequestOutputKind.DELTA:
+                # Side effect: logprobs processor forgets prompt logprobs
+                prompt_logprobs = self.logprobs_processor.pop_prompt_logprobs()
+            else:
+                prompt_logprobs = self.logprobs_processor.prompt_logprobs
 
         return RequestOutput(
             request_id=request_id,
@@ -201,22 +196,27 @@ class RequestState:
         finished = finish_reason is not None
         delta = self.output_kind == RequestOutputKind.DELTA
 
-        # Prepare text and token_ids, based on delta mode
-        text = self.detokenizer.get_next_output_text(finished, delta)
-        if not delta:
-            token_ids = self.detokenizer.output_token_ids
+        text = ""
+        if self.detokenizer is not None:
+            # Prepare text and token_ids, based on delta mode
+            text = self.detokenizer.get_next_output_text(finished, delta)
+            if not delta:
+                token_ids = self.detokenizer.output_token_ids
 
-        # Prepare logprobs, based on delta mode
-        logprobs = self.logprobs_processor.logprobs
-        if delta and logprobs:
-            logprobs = logprobs[-len(token_ids):]
+        logprobs = None
+        if self.logprobs_processor is not None:
+            # Prepare logprobs, based on delta mode
+            logprobs = self.logprobs_processor.logprobs
+            if delta and logprobs:
+                logprobs = logprobs[-len(token_ids):]
 
         return CompletionOutput(
             index=self.request_index,
             text=text,
             token_ids=token_ids,
             logprobs=logprobs,
-            cumulative_logprob=self.logprobs_processor.cumulative_logprob,
+            cumulative_logprob=self.logprobs_processor.cumulative_logprob
+            if self.logprobs_processor else None,
             finish_reason=str(finish_reason) if finished else None,
             stop_reason=stop_reason if finished else None)
 
@@ -339,14 +339,17 @@ class OutputProcessor:
             req_state.is_prefilling = False
 
             # 2) Detokenize the token ids into text and perform stop checks.
-            stop_string = req_state.detokenizer.update(
-                new_token_ids, finish_reason == FinishReason.STOP)
-            if stop_string:
-                finish_reason = FinishReason.STOP
-                stop_reason = stop_string
+            if req_state.detokenizer:
+                stop_string = req_state.detokenizer.update(
+                    new_token_ids, finish_reason == FinishReason.STOP)
+                if stop_string:
+                    finish_reason = FinishReason.STOP
+                    stop_reason = stop_string
 
             # 3) Compute sample and prompt logprobs for request, if required.
-            req_state.logprobs_processor.update_from_output(engine_core_output)
+            if req_state.logprobs_processor:
+                req_state.logprobs_processor.update_from_output(
+                    engine_core_output)
 
             # 4) Create and handle RequestOutput objects.
             if request_output := req_state.make_request_output(

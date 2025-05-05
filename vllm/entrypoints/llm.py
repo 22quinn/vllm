@@ -962,6 +962,7 @@ class LLM:
         _validate_truncation_size(self.llm_engine.model_config.max_model_len,
                                   truncate_prompt_tokens, tokenization_kwargs)
 
+        logger.info(f"encode() using {pooling_params=}, {parsed_prompts=}")
         self._validate_and_add_requests(
             prompts=parsed_prompts,
             params=pooling_params,
@@ -1012,7 +1013,7 @@ class LLM:
         if self.llm_engine.model_config.task != "embed":
             raise ValueError(
                 "Embedding API is only enabled for `--task embed`")
-
+        logger.info(f"embed() using {pooling_params=}")
         items = self.encode(prompts,
                             truncate_prompt_tokens=truncate_prompt_tokens,
                             use_tqdm=use_tqdm,
@@ -1404,6 +1405,7 @@ class LLM:
         priority: int = 0,
     ) -> None:
         request_id = str(next(self.request_counter))
+        logger.info(f"Adding request {request_id} with {prompt=}, {params=}")
         self.llm_engine.add_request(
             request_id,
             prompt,

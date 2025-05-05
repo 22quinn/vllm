@@ -4,6 +4,7 @@ import enum
 from typing import TYPE_CHECKING, Optional, Union
 
 from vllm.multimodal.inputs import MultiModalKwargs, PlaceholderRange
+from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingParams
 from vllm.utils import is_list_of
 from vllm.v1.engine import (EngineCoreEvent, EngineCoreEventType,
@@ -30,6 +31,7 @@ class Request:
         lora_request: Optional["LoRARequest"] = None,
         structured_output_request: Optional["StructuredOutputRequest"] = None,
         cache_salt: Optional[str] = None,
+        pooling_params: Optional[PoolingParams] = None,
     ) -> None:
         self.request_id = request_id
         self.sampling_params = sampling_params
@@ -72,6 +74,8 @@ class Request:
         self.output_token_ids = ConstantList(self._output_token_ids)
         self.all_token_ids = ConstantList(self._all_token_ids)
 
+        self.pooling_params = pooling_params
+
     @classmethod
     def from_engine_core_request(cls, request: EngineCoreRequest) -> "Request":
         if request.mm_inputs is not None:
@@ -86,6 +90,7 @@ class Request:
             multi_modal_hashes=request.mm_hashes,
             multi_modal_placeholders=request.mm_placeholders,
             sampling_params=request.sampling_params,
+            pooling_params=request.pooling_params,
             eos_token_id=request.eos_token_id,
             arrival_time=request.arrival_time,
             lora_request=request.lora_request,

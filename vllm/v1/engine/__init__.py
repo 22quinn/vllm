@@ -3,6 +3,7 @@
 import enum
 import time
 from collections.abc import Sequence
+from multiprocessing import Pool
 from typing import Any, Optional, Union
 
 import msgspec
@@ -10,6 +11,7 @@ import msgspec
 from vllm.lora.request import LoRARequest
 from vllm.multimodal import MultiModalKwargs
 from vllm.multimodal.inputs import PlaceholderRange
+from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingParams
 from vllm.v1.metrics.stats import SchedulerStats
 from vllm.v1.outputs import LogprobsLists, LogprobsTensors
@@ -53,6 +55,7 @@ class EngineCoreRequest(
     mm_inputs: Optional[Sequence[Optional[MultiModalKwargs]]]
     mm_hashes: Optional[list[str]]
     mm_placeholders: Optional[list[PlaceholderRange]]
+    pooling_params: PoolingParams
     sampling_params: SamplingParams
     eos_token_id: Optional[int]
     arrival_time: float
