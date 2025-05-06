@@ -129,7 +129,8 @@ class Processor:
         """
 
         if not isinstance(params, SamplingParams):
-            raise ValueError("V1 does not yet support Pooling models.")
+            return
+            # raise ValueError("V1 does not yet support Pooling models.")
 
         self._validate_logprobs(params)
         self._validate_sampling_params(params)
@@ -246,18 +247,23 @@ class Processor:
         if encoder_inputs is not None:
             raise NotImplementedError
 
-        assert isinstance(params, SamplingParams)
-        # TODO: can we avoid cloning here in multiproc case?
-        sampling_params = params.clone()
-        # If unset max tokens, then generate up to the max_model_len.
-        if sampling_params.max_tokens is None:
-            sampling_params.max_tokens = (
-                self.model_config.max_model_len -
-                len(decoder_inputs["prompt_token_ids"]))
-        sampling_params.update_from_generation_config(
-            self.generation_config_fields, eos_token_id)
-        sampling_params.update_from_tokenizer(
-            self.tokenizer.get_lora_tokenizer(lora_request))
+        # assert isinstance(params, SamplingParams)
+        pooling_params = None
+        sampling_params = SamplingParams.from_optional()
+        if isinstance(params, SamplingParams):
+            # TODO: can we avoid cloning here in multiproc case?
+            sampling_params = params.clone()
+            # If unset max tokens, then generate up to the max_model_len.
+            if sampling_params.max_tokens is None:
+                sampling_params.max_tokens = (
+                    self.model_config.max_model_len -
+                    len(decoder_inputs["prompt_token_ids"]))
+            sampling_params.update_from_generation_config(
+                self.generation_config_fields, eos_token_id)
+            sampling_params.update_from_tokenizer(
+                self.tokenizer.get_lora_tokenizer(lora_request))
+        elif isinstance(params, PoolingParams):
+            pooling_params = params.clone()
 
         # Multimodal related.
         sorted_mm_inputs: Optional[Sequence[Optional[MultiModalKwargs]]] = None
@@ -314,6 +320,7 @@ class Processor:
             mm_hashes=sorted_mm_hashes,
             mm_placeholders=sorted_mm_positions,
             sampling_params=sampling_params,
+            pooling_params=pooling_params,
             eos_token_id=eos_token_id,
             arrival_time=arrival_time,
             lora_request=lora_request,

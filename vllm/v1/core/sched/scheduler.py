@@ -646,6 +646,7 @@ class Scheduler(SchedulerInterface):
         spec_token_ids = model_runner_output.spec_token_ids
         logprobs = model_runner_output.logprobs
         prompt_logprobs_dict = model_runner_output.prompt_logprobs_dict
+        hidden_states = model_runner_output.hidden_states
         num_scheduled_tokens = scheduler_output.num_scheduled_tokens
 
         new_running: list[Request] = []
@@ -661,6 +662,21 @@ class Scheduler(SchedulerInterface):
             if num_tokens_scheduled == 0:
                 # The request was not scheduled in this step.
                 new_running.append(request)
+                continue
+
+            if hidden_states is not None:
+                request.status = RequestStatus.FINISHED_STOPPED
+                self._free_request(request)
+                outputs.append(
+                    EngineCoreOutput(
+                        request_id=req_id,
+                        new_token_ids=[],
+                        finish_reason=request.get_finished_reason(),
+                        new_logprobs=None,
+                        new_prompt_logprobs_tensors=None,
+                        stop_reason=request.stop_reason,
+                        events=request.take_events(),
+                        hidden_states=hidden_states))
                 continue
 
             req_index = model_runner_output.req_id_to_index[req_id]

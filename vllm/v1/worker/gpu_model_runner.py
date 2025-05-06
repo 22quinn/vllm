@@ -350,6 +350,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 mm_inputs=new_req_data.mm_inputs,
                 mm_positions=new_req_data.mm_positions,
                 sampling_params=sampling_params,
+                pooling_params=new_req_data.pooling_params,
                 generator=generator,
                 block_ids=new_req_data.block_ids,
                 num_computed_tokens=new_req_data.num_computed_tokens,
@@ -1118,6 +1119,18 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             # For mid-pipeline stages, return the hidden states.
             return hidden_states
 
+        if self.model_config.runner_type == "pooling":
+            hidden_states = torch.mean(hidden_states, dim=0).cpu()
+            return ModelRunnerOutput(
+                req_ids=self.input_batch.req_ids,
+                req_id_to_index=self.input_batch.req_id_to_index,
+                sampled_token_ids=[],
+                spec_token_ids=[],
+                logprobs=None,
+                prompt_logprobs_dict={},
+                hidden_states=hidden_states,
+            )
+
         sample_hidden_states = hidden_states[logits_indices]
         logits = self.model.compute_logits(sample_hidden_states, None)
 
@@ -1291,6 +1304,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             spec_token_ids=spec_token_ids,
             logprobs=logprobs_lists,
             prompt_logprobs_dict=prompt_logprobs_dict,
+            hidden_states=None,
         )
 
     def generate_draft_token_ids(
@@ -1524,6 +1538,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self,
         hidden_states: torch.Tensor,
     ) -> torch.Tensor:
+        return
 
         logits = self.model.compute_logits(hidden_states, None)
         num_reqs = logits.size(0)
@@ -1661,7 +1676,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
         hidden_states = self._dummy_run(self.max_num_tokens)
         if get_pp_group().is_last_rank:
-            sampler_output = self._dummy_sampler_run(hidden_states)
+            # sampler_output = self._dummy_sampler_run(hidden_states)
+            sampler_output = None
         else:
             sampler_output = None
         torch.cuda.synchronize()
