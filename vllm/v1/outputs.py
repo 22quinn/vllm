@@ -100,6 +100,9 @@ class ModelRunnerOutput:
     # [prompt_len]
     prompt_logprobs_dict: dict[str, Optional[LogprobsTensors]]
 
+    # Used for pooling
+    hidden_states: Optional[torch.Tensor]
+
 
 EMPTY_MODEL_RUNNER_OUTPUT = ModelRunnerOutput(
     req_ids=[],
@@ -108,4 +111,5 @@ EMPTY_MODEL_RUNNER_OUTPUT = ModelRunnerOutput(
     spec_token_ids=None,
     logprobs=None,
     prompt_logprobs_dict={},
+    hidden_states=None,
 )

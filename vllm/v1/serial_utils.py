@@ -202,6 +202,8 @@ class MsgpackDecoder:
         self.aux_buffers = bufs
         try:
             return self.decoder.decode(bufs[0])
+        except:
+            print("bufs[0]:", bufs[0])
         finally:
             self.aux_buffers = ()
 

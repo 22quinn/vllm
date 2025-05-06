@@ -1115,12 +1115,20 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         else:
             hidden_states = output
 
-        if self.model_config.runner_type == "pooling":
-            return hidden_states
-
         if not get_pp_group().is_last_rank:
             # For mid-pipeline stages, return the hidden states.
             return hidden_states
+
+        if self.model_config.runner_type == "pooling":
+            return ModelRunnerOutput(
+                req_ids=self.input_batch.req_ids,
+                req_id_to_index=self.input_batch.req_id_to_index,
+                sampled_token_ids=[],
+                spec_token_ids=[],
+                logprobs=None,
+                prompt_logprobs_dict={},
+                hidden_states=hidden_states.cpu(),
+            )
 
         sample_hidden_states = hidden_states[logits_indices]
         logits = self.model.compute_logits(sample_hidden_states, None)
@@ -1295,6 +1303,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             spec_token_ids=spec_token_ids,
             logprobs=logprobs_lists,
             prompt_logprobs_dict=prompt_logprobs_dict,
+            hidden_states=None,
         )
 
     def generate_draft_token_ids(

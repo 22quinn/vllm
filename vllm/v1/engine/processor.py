@@ -249,7 +249,7 @@ class Processor:
 
         # assert isinstance(params, SamplingParams)
         pooling_params = None
-        sampling_params = None
+        sampling_params = SamplingParams.from_optional()
         if isinstance(params, SamplingParams):
             # TODO: can we avoid cloning here in multiproc case?
             sampling_params = params.clone()
