@@ -1120,6 +1120,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             return hidden_states
 
         if self.model_config.runner_type == "pooling":
+            hidden_states = torch.mean(hidden_states, dim=0).cpu()
             return ModelRunnerOutput(
                 req_ids=self.input_batch.req_ids,
                 req_id_to_index=self.input_batch.req_id_to_index,
@@ -1127,7 +1128,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 spec_token_ids=[],
                 logprobs=None,
                 prompt_logprobs_dict={},
-                hidden_states=hidden_states.cpu(),
+                hidden_states=hidden_states,
             )
 
         sample_hidden_states = hidden_states[logits_indices]

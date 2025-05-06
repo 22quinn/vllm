@@ -665,6 +665,8 @@ class Scheduler(SchedulerInterface):
                 continue
 
             if hidden_states is not None:
+                request.status = RequestStatus.FINISHED_STOPPED
+                self._free_request(request)
                 outputs.append(
                     EngineCoreOutput(
                         request_id=req_id,
