@@ -63,7 +63,6 @@ class EngineCore:
 
         # Setup Model.
         self.model_executor = executor_class(vllm_config)
-        logger.info(f"Model executor initialized. {self.model_executor=}")
         if executor_fail_callback is not None:
             self.model_executor.register_failure_callback(
                 executor_fail_callback)
@@ -523,7 +522,6 @@ class EngineCoreProc(EngineCore):
                 # (RequestType, RequestData)
                 type_frame, *data_frames = socket.recv_multipart(copy=False)
                 request_type = EngineCoreRequestType(bytes(type_frame.buffer))
-                logger.info(f"Received request type: {request_type.name}")
 
                 # Deserialize the request data.
                 decoder = add_request_decoder if (

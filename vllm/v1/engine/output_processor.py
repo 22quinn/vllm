@@ -239,7 +239,6 @@ class OutputProcessor:
         return len(self.request_states)
 
     def has_unfinished_requests(self) -> bool:
-        print("self.request_states.keys()", self.request_states.keys())
         return len(self.request_states) > 0
 
     def propagate_error(self, e: Exception):
@@ -275,7 +274,6 @@ class OutputProcessor:
         queue: Optional[RequestOutputCollector] = None,
     ) -> None:
         request_id = request.request_id
-        print("add_request", request_id)
         if request_id in self.request_states:
             raise ValueError(f"Request id {request_id} already running.")
 
@@ -338,7 +336,6 @@ class OutputProcessor:
             finish_reason = engine_core_output.finish_reason
             stop_reason = engine_core_output.stop_reason
             hidden_states = engine_core_output.hidden_states
-            print("process_outputs()", req_id, finish_reason)
 
             req_state.is_prefilling = False
 

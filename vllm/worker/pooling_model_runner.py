@@ -151,7 +151,6 @@ class PoolingModelRunner(
         if not self.is_driver_worker:
             return []
 
-        logger.info("Return self.model.pooler() %s", hidden_or_intermediate_states.shape)
         return [
             self.model.pooler(hidden_states=hidden_or_intermediate_states,
                               pooling_metadata=model_input.pooling_metadata)
