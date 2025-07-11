@@ -285,46 +285,58 @@ def test_get_nans_in_logits(model_runner, dist_init):
     scheduler_output = _schedule_new_request(*req_ids)
     model_runner._update_states(scheduler_output)
 
-    logits = torch.tensor([
-        [1.0, 2.0, 3.0],
-        [3.0, 2.0, 1.0],
-    ], device=DEVICE)
+    logits = torch.tensor(
+        [
+            [1.0, 2.0, 3.0],
+            [3.0, 2.0, 1.0],
+        ],
+        device=DEVICE,
+    )
     result = model_runner._get_nans_in_logits(logits)
     assert result == {"req_0": 0, "req_1": 0}
 
-    logits = torch.tensor([
-        [1.0, float('nan'), 3.0],
-        [4.0, float('nan'), float('nan')],
-    ],
-                          device=DEVICE)
+    logits = torch.tensor(
+        [
+            [1.0, float("nan"), 3.0],
+            [4.0, float("nan"), float("nan")],
+        ],
+        device=DEVICE,
+    )
     result = model_runner._get_nans_in_logits(logits)
     assert result == {"req_0": 1, "req_1": 2}
 
-    logits = torch.tensor([
-        [1.0, 2.0, 3.0],
-        [4.0, float('nan'), float('nan')],
-    ],
-                          device=DEVICE)
+    logits = torch.tensor(
+        [
+            [1.0, 2.0, 3.0],
+            [4.0, float("nan"), float("nan")],
+        ],
+        device=DEVICE,
+    )
     result = model_runner._get_nans_in_logits(logits)
     assert result == {"req_0": 0, "req_1": 2}
 
     result = model_runner._get_nans_in_logits(logits=None)
     assert result == {"req_0": 0, "req_1": 0}
 
-    logits = torch.tensor([
-        [1.0, float('nan'), 3.0],
-    ], device=DEVICE)
+    logits = torch.tensor(
+        [
+            [1.0, float("nan"), 3.0],
+        ],
+        device=DEVICE,
+    )
     result = model_runner._get_nans_in_logits(logits)
-    assert result == {'req_0': 1, 'req_1': 0}
+    assert result == {"req_0": 1, "req_1": 0}
 
-    logits = torch.tensor([
-        [float('nan'), float('nan'), 2.0],
-        [1.0, 2.0, 3.0],
-        [float('nan'), 2.0, 3.0],
-    ],
-                          device=DEVICE)
+    logits = torch.tensor(
+        [
+            [float("nan"), float("nan"), 2.0],
+            [1.0, 2.0, 3.0],
+            [float("nan"), 2.0, 3.0],
+        ],
+        device=DEVICE,
+    )
     result = model_runner._get_nans_in_logits(logits)
-    assert result == {'req_0': 2, 'req_1': 0}
+    assert result == {"req_0": 2, "req_1": 0}
 
 
 def test_update_states_no_changes(model_runner, dist_init):
@@ -405,8 +417,11 @@ def test_kv_cache_stride_order(monkeypatch, model_runner):
     n_heads = model_runner.model_config.get_num_kv_heads(
         model_runner.parallel_config)
     expected_kv_cache_shape = [
-        2, NUM_BLOCKS, BLOCK_SIZE, n_heads,
-        model_runner.model_config.get_head_size()
+        2,
+        NUM_BLOCKS,
+        BLOCK_SIZE,
+        n_heads,
+        model_runner.model_config.get_head_size(),
     ]
     # TODO mla test
     default_stride = list(range(5))
@@ -456,7 +471,7 @@ def test_load_model_weights_inplace(dist_init, model_runner, model_runner_2):
         {"load_config": {
             "load_format": original_load_format
         }})
-    model_runner_2.load_model()  # Load real weights inplace
+    model_runner_2.reload_weights()  # Load real weights inplace
     assert str(model_runner.get_model().state_dict()) == str(
         model_runner_2.get_model().state_dict())
 
@@ -484,7 +499,7 @@ def test_init_kv_cache_with_kv_sharing_invalid_target_layer_order():
                 head_size=64,
                 scale=1.0,
                 prefix=layer_1,
-            )
+            ),
         }
         # suppress var not used error
         assert fwd_context is not None
@@ -513,7 +528,7 @@ def test_init_kv_cache_with_kv_sharing_target_layer_not_exist():
                 prefix=layer_1,
                 # invalid layer: cross_attn.atn doesn't exist!
                 kv_sharing_target_layer_name=invalid_layer,
-            )
+            ),
         }
         # suppress var not used error
         assert fwd_context is not None
@@ -542,7 +557,7 @@ def test_init_kv_cache_with_kv_sharing_target_same_as_current():
                 scale=1.0,
                 prefix=layer_1,
                 kv_sharing_target_layer_name=layer_1,
-            )
+            ),
         }
         # suppress var not used error
         assert fwd_context is not None
@@ -568,7 +583,7 @@ def test_init_kv_cache_without_kv_sharing():
                 head_size=64,
                 scale=1.0,
                 prefix=layer_1,
-            )
+            ),
         }
         # suppress var not used error
         assert fwd_context is not None
@@ -590,8 +605,8 @@ def test_init_kv_cache_without_kv_sharing():
     assert kv_cache_config.kv_cache_tensors[0].size == available_memory // 2
     assert kv_cache_config.kv_cache_tensors[1].size == available_memory // 2
 
-    max_context_len =\
-        estimate_max_model_len(vllm_config, kv_cache_spec, 5 * GiB_bytes)
+    max_context_len = estimate_max_model_len(vllm_config, kv_cache_spec,
+                                             5 * GiB_bytes)
     # max context len with KV sharing should be 2x as large as without
     assert max_context_len == 1310720
 
@@ -599,8 +614,8 @@ def test_init_kv_cache_without_kv_sharing():
     # this will only allocate 2 block worth of memory (2 * 32kb)
     kv_cache_config.num_blocks = 1
     for kv_cache_tensor in kv_cache_config.kv_cache_tensors:
-        kv_cache_tensor.size = (
-            kv_cache_spec[kv_cache_tensor.shared_by[0]].page_size_bytes)
+        kv_cache_tensor.size = kv_cache_spec[
+            kv_cache_tensor.shared_by[0]].page_size_bytes
 
     runner.initialize_kv_cache(kv_cache_config)
 
@@ -637,7 +652,7 @@ def test_init_kv_cache_with_kv_sharing_valid():
                 scale=1.0,
                 prefix=layer_1,
                 kv_sharing_target_layer_name="model.layers.0.self_attn.attn",
-            )
+            ),
         }
         # suppress var not used error
         assert fwd_context is not None
@@ -663,16 +678,16 @@ def test_init_kv_cache_with_kv_sharing_valid():
     # compared to no KV sharing
     assert kv_cache_config.kv_cache_tensors[0].size == available_memory
 
-    max_context_len =\
-        estimate_max_model_len(vllm_config, kv_cache_spec, 5 * GiB_bytes)
+    max_context_len = estimate_max_model_len(vllm_config, kv_cache_spec,
+                                             5 * GiB_bytes)
     # max context len with KV sharing should be 2x as large as without
     assert max_context_len == 2 * 1310720
 
     # important: override tensor size to prevent large mem alloc during test
     # this will only allocate 1 block worth of memory (32kb)
     kv_cache_config.num_blocks = 1
-    kv_cache_config.kv_cache_tensors[0].size =\
-        kv_cache_spec[layer_0].page_size_bytes
+    kv_cache_config.kv_cache_tensors[0].size = kv_cache_spec[
+        layer_0].page_size_bytes
 
     runner.initialize_kv_cache(kv_cache_config)
 

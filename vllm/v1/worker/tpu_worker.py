@@ -77,6 +77,7 @@ class TPUWorker:
         if self.model_config.trust_remote_code:
             # note: lazy import to avoid importing torch before initializing
             from vllm.utils import init_cached_hf_modules
+
             init_cached_hf_modules()
 
         # Delay profiler initialization to the start of the profiling.
@@ -117,8 +118,11 @@ class TPUWorker:
 
         # Initialize the distributed environment.
         self._init_tpu_worker_distributed_environment(
-            self.parallel_config, self.rank, self.distributed_init_method,
-            self.local_rank)
+            self.parallel_config,
+            self.rank,
+            self.distributed_init_method,
+            self.local_rank,
+        )
 
         # Device initialization should happen after initializing
         # the distributed runtime.
@@ -152,9 +156,8 @@ class TPUWorker:
             xr.initialize_cache(per_rank_path, readonly=False)
 
         # Init ModelRunner here, so that we have access to self.device.
-        self.model_runner = \
-            TPUModelRunner(self.vllm_config, self.device,
-                           self.original_parallel_config)
+        self.model_runner = TPUModelRunner(self.vllm_config, self.device,
+                                           self.original_parallel_config)
 
         if rank == 0:
             # If usage stat is enabled, collect relevant info.
@@ -179,7 +182,8 @@ class TPUWorker:
         bind_kv_cache(
             kv_caches,
             self.vllm_config.compilation_config.static_forward_context,
-            runner_kv_caches)
+            runner_kv_caches,
+        )
 
         # `max_num_tokens >= max_num_batched_tokens` due to padding.
         with self.model_runner.maybe_setup_dummy_loras(self.lora_config):
@@ -204,6 +208,7 @@ class TPUWorker:
             # TODO: use xm.get_memory_info for SPMD once it's supported in
             # PyTorch/XLA.
             import tpu_info
+
             chip_type, _ = tpu_info.device.get_local_chips()
             device_usage = tpu_info.metrics.get_chip_usage(chip_type)
             total_memory_size = device_usage[0].total_memory
@@ -225,15 +230,14 @@ class TPUWorker:
         tpu_kv_cache_bytes = max(usable_memory_size - profiled, 0)
         head_size = self.model_config.get_head_size()
         if head_size > 0:
-            padded_head_size = cdiv(
-                head_size, TPU_HEAD_SIZE_ALIGNMENT) * TPU_HEAD_SIZE_ALIGNMENT
+            padded_head_size = (cdiv(head_size, TPU_HEAD_SIZE_ALIGNMENT) *
+                                TPU_HEAD_SIZE_ALIGNMENT)
             if padded_head_size != head_size:
                 logger.warning_once("head size is padded to %d",
                                     padded_head_size)
             # We adjust the usable memory size for the KV cache to prevent OOM
             # errors, even after padding the head_size.
-            tpu_kv_cache_bytes = (tpu_kv_cache_bytes * head_size //
-                                  padded_head_size)
+            tpu_kv_cache_bytes = tpu_kv_cache_bytes * head_size // padded_head_size
         return int(tpu_kv_cache_bytes)
 
     def execute_model(
@@ -262,6 +266,9 @@ class TPUWorker:
 
     def update_config(self, overrides: dict[str, Any]) -> None:
         self.model_runner.update_config(overrides)
+
+    def reload_weights(self) -> None:
+        self.model_runner.reload_weights()
 
     def compile_or_warm_up_model(self) -> None:
         if not self.model_config.enforce_eager:
@@ -313,6 +320,7 @@ class TPUWorker:
 
 try:
     from tpu_commons.worker import TPUWorker as TPUCommonsWorker
+
     TPUWorker = TPUCommonsWorker  # type: ignore
 except ImportError:
     logger.info("tpu_commons not found, using vLLM's TPUWorker.")

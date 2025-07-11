@@ -4,6 +4,7 @@
 import copy
 import gc
 import os
+from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING, Any, Optional
 
 import torch
@@ -49,15 +50,18 @@ class Worker(WorkerBase):
         is_driver_worker: bool = False,
     ):
 
-        super().__init__(vllm_config=vllm_config,
-                         local_rank=local_rank,
-                         rank=rank,
-                         distributed_init_method=distributed_init_method,
-                         is_driver_worker=is_driver_worker)
+        super().__init__(
+            vllm_config=vllm_config,
+            local_rank=local_rank,
+            rank=rank,
+            distributed_init_method=distributed_init_method,
+            is_driver_worker=is_driver_worker,
+        )
 
         if self.model_config.trust_remote_code:
             # note: lazy import to avoid importing torch before initializing
             from vllm.utils import init_cached_hf_modules
+
             init_cached_hf_modules()
 
         # Buffers saved before sleep
@@ -67,8 +71,10 @@ class Worker(WorkerBase):
         # VLLM_TORCH_PROFILER_DIR=/path/to/save/trace
         if envs.VLLM_TORCH_PROFILER_DIR:
             torch_profiler_trace_dir = envs.VLLM_TORCH_PROFILER_DIR
-            logger.info("Profiling enabled. Traces will be saved to: %s",
-                        torch_profiler_trace_dir)
+            logger.info(
+                "Profiling enabled. Traces will be saved to: %s",
+                torch_profiler_trace_dir,
+            )
             self.profiler = torch.profiler.profile(
                 activities=[
                     torch.profiler.ProfilerActivity.CPU,
@@ -76,7 +82,8 @@ class Worker(WorkerBase):
                 ],
                 with_stack=True,
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(
-                    torch_profiler_trace_dir, use_gzip=True))
+                    torch_profiler_trace_dir, use_gzip=True),
+            )
         else:
             self.profiler = None
 
@@ -101,8 +108,10 @@ class Worker(WorkerBase):
         assert freed_bytes >= 0, "Memory usage increased after sleeping."
         logger.info(
             "Sleep mode freed %.2f GiB memory, "
-            "%.2f GiB memory is still in use.", freed_bytes / GiB_bytes,
-            used_bytes / GiB_bytes)
+            "%.2f GiB memory is still in use.",
+            freed_bytes / GiB_bytes,
+            used_bytes / GiB_bytes,
+        )
 
     def wake_up(self, tags: Optional[list[str]] = None) -> None:
         from vllm.device_allocator.cumem import CuMemAllocator
@@ -117,6 +126,21 @@ class Worker(WorkerBase):
                 if name in self._sleep_saved_buffers:
                     buffer.data.copy_(self._sleep_saved_buffers[name].data)
             self._sleep_saved_buffers = {}
+
+    def _maybe_get_memory_pool_context(self,
+                                       tag: str) -> AbstractContextManager:
+        from vllm.device_allocator.cumem import CuMemAllocator
+
+        if self.vllm_config.model_config.enable_sleep_mode:
+            allocator = CuMemAllocator.get_instance()
+            if tag == "weights":
+                assert allocator.get_current_usage() == 0, (
+                    "Sleep mode can only be "
+                    "used for one instance per process.")
+            context = allocator.use_memory_pool(tag=tag)
+        else:
+            context = nullcontext()
+        return context
 
     def initialize_cache(self, num_gpu_blocks: int,
                          num_cpu_blocks: int) -> None:
@@ -161,10 +185,13 @@ class Worker(WorkerBase):
             raise RuntimeError(
                 f"Not support device type: {self.device_config.device}")
         # Initialize the distributed environment.
-        init_worker_distributed_environment(self.vllm_config, self.rank,
-                                            self.distributed_init_method,
-                                            self.local_rank,
-                                            current_platform.dist_backend)
+        init_worker_distributed_environment(
+            self.vllm_config,
+            self.rank,
+            self.distributed_init_method,
+            self.local_rank,
+            current_platform.dist_backend,
+        )
         # Set random seed.
         set_random_seed(self.model_config.seed)
 
@@ -189,6 +216,7 @@ class Worker(WorkerBase):
             context = allocator.use_memory_pool(tag="weights")
         else:
             from contextlib import nullcontext
+
             context = nullcontext()
         with context:
             self.model_runner.load_model()
@@ -196,9 +224,13 @@ class Worker(WorkerBase):
     def update_config(self, overrides: dict[str, Any]) -> None:
         self.model_runner.update_config(overrides)
 
+    def reload_weights(self) -> None:
+        with self._maybe_get_memory_pool_context(tag="weights"):
+            self.model_runner.reload_weights()
+
     @torch.inference_mode()
     def determine_available_memory(self) -> int:
-        """Profiles the peak memory usage of the model to determine how much 
+        """Profiles the peak memory usage of the model to determine how much
         memory can be used for KV cache without OOMs.
 
         The engine will first conduct a profiling of the existing memory usage.
@@ -232,14 +264,16 @@ class Worker(WorkerBase):
             "release GPU memory while vLLM is profiling during initialization. "
             "To fix this, ensure consistent GPU memory allocation or "
             "isolate vLLM in its own container.")
-        available_kv_cache_memory = self.requested_memory \
-            - profile_result.non_kv_cache_memory
+        available_kv_cache_memory = (self.requested_memory -
+                                     profile_result.non_kv_cache_memory)
 
         logger.debug(
             "Initial free memory: %.2f GiB, free memory: %.2f GiB, "
             "requested GPU memory: %.2f GiB",
-            GiB(self.init_snapshot.free_memory), GiB(free_gpu_memory),
-            GiB(self.requested_memory))
+            GiB(self.init_snapshot.free_memory),
+            GiB(free_gpu_memory),
+            GiB(self.requested_memory),
+        )
         logger.debug(profile_result)
         logger.info("Available KV cache memory: %.2f GiB",
                     GiB(available_kv_cache_memory))
@@ -260,6 +294,7 @@ class Worker(WorkerBase):
             context = allocator.use_memory_pool(tag="kv_cache")
         else:
             from contextlib import nullcontext
+
             context = nullcontext()
         with context:
             self.model_runner.initialize_kv_cache(kv_cache_config)
@@ -287,15 +322,16 @@ class Worker(WorkerBase):
         # NOTE: This is called after `capture_model` on purpose to prevent
         # memory buffers from being cleared by `torch.cuda.empty_cache`.
         if get_pp_group().is_last_rank:
-            max_num_reqs = min(self.scheduler_config.max_num_seqs,
-                               self.scheduler_config.max_num_batched_tokens)
+            max_num_reqs = min(
+                self.scheduler_config.max_num_seqs,
+                self.scheduler_config.max_num_batched_tokens,
+            )
 
             # We skip EPLB here since we don't want to record dummy metrics
-            hidden_states, last_hidden_states = \
-                self.model_runner._dummy_run(
-                    num_tokens=max_num_reqs,
-                    skip_eplb=True,
-                )
+            hidden_states, last_hidden_states = self.model_runner._dummy_run(
+                num_tokens=max_num_reqs,
+                skip_eplb=True,
+            )
             if self.model_runner.is_pooling_model:
                 self.model_runner._dummy_pooler_run(hidden_states)
             else:
@@ -324,8 +360,8 @@ class Worker(WorkerBase):
                                                  intermediate_tensors)
 
         parallel_config = self.vllm_config.parallel_config
-        if parallel_config.distributed_executor_backend != "external_launcher" \
-            and not get_pp_group().is_last_rank:
+        if (parallel_config.distributed_executor_backend != "external_launcher"
+                and not get_pp_group().is_last_rank):
             assert isinstance(output, IntermediateTensors)
             get_pp_group().send_tensor_dict(output.tensors,
                                             all_gather_group=get_tp_group())
@@ -333,9 +369,8 @@ class Worker(WorkerBase):
 
         assert isinstance(output, ModelRunnerOutput)
         if has_kv_transfer_group():
-            finished_sending, finished_recving = (
-                get_kv_transfer_group().get_finished(
-                    scheduler_output.finished_req_ids))
+            finished_sending, finished_recving = get_kv_transfer_group(
+            ).get_finished(scheduler_output.finished_req_ids)
             if finished_sending or finished_recving:
                 if output is EMPTY_MODEL_RUNNER_OUTPUT:
                     output = copy.copy(EMPTY_MODEL_RUNNER_OUTPUT)
@@ -387,6 +422,7 @@ class Worker(WorkerBase):
         max_size: Optional[int] = None,
     ) -> None:
         from vllm.model_executor.model_loader import ShardedStateLoader
+
         ShardedStateLoader.save_model(
             self.model_runner.model,
             path,
