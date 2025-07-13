@@ -18,7 +18,11 @@ from vllm.attention import AttentionType, get_attn_backend
 from vllm.attention.backends.abstract import AttentionBackend
 from vllm.attention.layer import Attention
 from vllm.compilation.counter import compilation_counter
-from vllm.config import (CompilationLevel, VllmConfig,
+from vllm.config import (CacheConfig, CompilationConfig, CompilationLevel,
+                         LoadConfig, LoRAConfig, ModelConfig,
+                         ObservabilityConfig, ParallelConfig,
+                         PromptAdapterConfig, SchedulerConfig,
+                         SpeculativeConfig, VllmConfig,
                          get_layers_from_vllm_config)
 from vllm.distributed.eplb.eplb_state import EplbState
 from vllm.distributed.kv_transfer import (get_kv_transfer_group,
@@ -94,16 +98,6 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         device: torch.device,
     ):
         self.vllm_config = vllm_config
-        self.model_config = vllm_config.model_config
-        self.cache_config = vllm_config.cache_config
-        self.compilation_config = vllm_config.compilation_config
-        self.lora_config = vllm_config.lora_config
-        self.load_config = vllm_config.load_config
-        self.parallel_config = vllm_config.parallel_config
-        self.scheduler_config = vllm_config.scheduler_config
-        self.speculative_config = vllm_config.speculative_config
-        self.prompt_adapter_config = vllm_config.prompt_adapter_config
-        self.observability_config = vllm_config.observability_config
 
         from vllm.model_executor.models.utils import set_cpu_offload_max_bytes
         set_cpu_offload_max_bytes(
@@ -315,6 +309,46 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         # means this layer will perform attention using the keys and values
         # from the KV cache of `shared_kv_cache_layers[layer_name]`.
         self.shared_kv_cache_layers: dict[str, str] = {}
+
+    @property
+    def model_config(self) -> ModelConfig:
+        return self.vllm_config.model_config
+
+    @property
+    def cache_config(self) -> CacheConfig:
+        return self.vllm_config.cache_config
+
+    @property
+    def compilation_config(self) -> CompilationConfig:
+        return self.vllm_config.compilation_config
+
+    @property
+    def lora_config(self) -> LoRAConfig:
+        return self.vllm_config.lora_config
+
+    @property
+    def load_config(self) -> LoadConfig:
+        return self.vllm_config.load_config
+
+    @property
+    def parallel_config(self) -> ParallelConfig:
+        return self.vllm_config.parallel_config
+
+    @property
+    def scheduler_config(self) -> SchedulerConfig:
+        return self.vllm_config.scheduler_config
+
+    @property
+    def speculative_config(self) -> SpeculativeConfig:
+        return self.vllm_config.speculative_config
+
+    @property
+    def prompt_adapter_config(self) -> PromptAdapterConfig:
+        return self.vllm_config.prompt_adapter_config
+
+    @property
+    def observability_config(self) -> ObservabilityConfig:
+        return self.vllm_config.observability_config
 
     def _may_reorder_batch(self, scheduler_output: "SchedulerOutput") -> None:
         """
