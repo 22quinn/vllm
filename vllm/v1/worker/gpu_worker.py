@@ -4,6 +4,7 @@
 import copy
 import gc
 import os
+from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING, Any, Optional
 
 import torch
@@ -118,6 +119,21 @@ class Worker(WorkerBase):
                     buffer.data.copy_(self._sleep_saved_buffers[name].data)
             self._sleep_saved_buffers = {}
 
+    def _maybe_get_memory_pool_context(self,
+                                       tag: str) -> AbstractContextManager:
+        from vllm.device_allocator.cumem import CuMemAllocator
+
+        if self.vllm_config.model_config.enable_sleep_mode:
+            allocator = CuMemAllocator.get_instance()
+            if tag == "weights":
+                assert allocator.get_current_usage() == 0, (
+                    "Sleep mode can only be "
+                    "used for one instance per process.")
+            context = allocator.use_memory_pool(tag=tag)
+        else:
+            context = nullcontext()
+        return context
+
     def initialize_cache(self, num_gpu_blocks: int,
                          num_cpu_blocks: int) -> None:
         self.cache_config.num_gpu_blocks = num_gpu_blocks
@@ -195,6 +211,10 @@ class Worker(WorkerBase):
 
     def update_config(self, overrides: dict[str, Any]) -> None:
         self.model_runner.update_config(overrides)
+
+    def reload_weights(self) -> None:
+        with self._maybe_get_memory_pool_context(tag="weights"):
+            self.model_runner.reload_weights()
 
     @torch.inference_mode()
     def determine_available_memory(self) -> int:

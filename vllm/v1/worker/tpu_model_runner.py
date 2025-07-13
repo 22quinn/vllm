@@ -1182,6 +1182,11 @@ class TPUModelRunner(LoRAModelRunnerMixin):
             self.model = model
         self.sampler = TPUSampler()
 
+    def reload_weights(self) -> None:
+        model_loader = get_model_loader(self.load_config)
+        logger.info("Reloading weights inplace...")
+        model_loader.load_weights(self.model, model_config=self.model_config)
+
     @torch.no_grad()
     def _dummy_run(self, num_tokens: int, num_reqs: int,
                    num_blocks: int) -> None:
