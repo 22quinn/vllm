@@ -615,9 +615,10 @@ def default_weight_loader(param: torch.Tensor,
             # "broadcast" instead of copy
             param.data.fill_(loaded_weight.item())
         else:
-            assert param.size() == loaded_weight.size(), (
-                f"Attempted to load weight ({loaded_weight.size()}) "
-                f"into parameter ({param.size()})")
+            if param.size() != loaded_weight.size():
+                print(f"Attempted to load weight ({loaded_weight.size()}) "
+                      f"into parameter ({param.size()})")
+                return
 
             param.data.copy_(loaded_weight)
     except Exception:

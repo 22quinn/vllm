@@ -417,6 +417,7 @@ class Qwen2Model(nn.Module):
                 param = params_dict[name]
                 weight_loader = getattr(param, "weight_loader",
                                         default_weight_loader)
+                print("Loading weight", name)
                 weight_loader(param, loaded_weight)
             loaded_params.add(name)
         return loaded_params
