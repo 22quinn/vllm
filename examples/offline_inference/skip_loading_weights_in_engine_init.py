@@ -28,7 +28,7 @@ def main():
     # Create an LLM without loading real weights
     llm = LLM(
         model="Qwen/Qwen3-0.6B",
-        load_format="dummy",
+        load_format="auto",
         enforce_eager=True,
         tensor_parallel_size=4,
     )
@@ -38,10 +38,10 @@ def main():
 
     # Update load format from `dummy` to `auto`
     llm.collective_rpc(
-        "update_config", args=({"load_config": {"load_format": "auto"}},)
+        "update_config", args=({"model_config": {"model": "Qwen/Qwen3-1.7B"}},)
     )
     # Now reload real weights inplace
-    llm.collective_rpc("reload_weights")
+    llm.collective_rpc("load_model")
 
     # Check outputs make sense
     outputs = llm.generate(prompts, sampling_params)
