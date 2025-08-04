@@ -40,6 +40,7 @@ try:
         lazily initialized after Ray sets CUDA_VISIBLE_DEVICES."""
 
         def __init__(self, *args, **kwargs) -> None:
+            logger.warning(f"===quinnzhu Initializing RayWorkerWrapper with {kwargs["rpc_rank"]=}.")
             super().__init__(*args, **kwargs)
             # Since the compiled DAG runs a main execution
             # in a different thread that calls cuda.set_device.

@@ -47,6 +47,9 @@ class PyNcclCommunicator:
         else:
             self.rank = group.rank
             self.world_size = group.world_size
+        logger.warning(
+            f"PyNcclCommunicator init: rank {self.rank} world_size {self.world_size}, group {group}"
+        )
 
         self.group = group
 
@@ -265,6 +268,9 @@ class PyNcclCommunicator:
                            self.comm, cudaStream_t(stream.cuda_stream))
 
     def broadcast(self, tensor: torch.Tensor, src: int, stream=None):
+        logger.warning(
+            f"broadcast: rank {self.rank}/{self.world_size}, group {self.group}, src {src}, shape {tensor.shape}"
+        )
         if self.disabled:
             return
         assert tensor.device == self.device, (
