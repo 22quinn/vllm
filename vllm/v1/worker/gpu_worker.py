@@ -50,7 +50,9 @@ class Worker(WorkerBase):
         distributed_init_method: str,
         is_driver_worker: bool = False,
     ):
-
+        logger.warning(
+            f"===quinnzhu Worker init with {local_rank=}, {rank=}, {distributed_init_method=}"
+        )
         super().__init__(vllm_config=vllm_config,
                          local_rank=local_rank,
                          rank=rank,
