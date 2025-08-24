@@ -48,7 +48,7 @@ EngineIdentity = bytes
 
 class EngineCoreClient(ABC):
     """
-    EngineCoreClient: subclasses handle different methods for pushing 
+    EngineCoreClient: subclasses handle different methods for pushing
         and pulling from the EngineCore for asyncio / multiprocessing.
 
     Subclasses:
@@ -233,7 +233,7 @@ class EngineCoreClient(ABC):
 
 class InprocClient(EngineCoreClient):
     """
-    InprocClient: client for in-process EngineCore. Intended 
+    InprocClient: client for in-process EngineCore. Intended
     for use in LLMEngine for V0-style add_request() and step()
         EngineCore setup in this process (no busy loop).
 
@@ -402,7 +402,7 @@ class MPClient(EngineCoreClient):
 
         * pushes EngineCoreRequests via input_socket
         * pulls EngineCoreOutputs via output_socket
-    
+
         * AsyncMPClient subclass for AsyncLLM usage
         * SyncMPClient subclass for LLM usage
     """
@@ -597,6 +597,7 @@ class SyncMPClient(MPClient):
 
     def __init__(self, vllm_config: VllmConfig, executor_class: type[Executor],
                  log_stats: bool):
+        logger.info("===quinnzhu Initializing SyncMPClient")
         super().__init__(
             asyncio_mode=False,
             vllm_config=vllm_config,
@@ -744,6 +745,7 @@ class SyncMPClient(MPClient):
                        timeout: Optional[float] = None,
                        args: tuple = (),
                        kwargs: Optional[dict[str, Any]] = None) -> list[_R]:
+        logger.info(f"===quinnzhu collective_rpc {method=}")
         return self.call_utility("collective_rpc", method, timeout, args,
                                  kwargs)
 
