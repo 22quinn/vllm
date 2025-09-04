@@ -389,6 +389,8 @@ class StatelessProcessGroup:
         can call `StatelessProcessGroup.create` to form a group, and then process A, B,
         C, and D can call `StatelessProcessGroup.create` to form another group.
         """ # noqa
+        print("StatelessProcessGroup.create with rank ", rank, ", world_size ",
+              world_size)
         launch_server = rank == 0
         if launch_server:
             # listen on the specified interface (instead of 0.0.0.0)
@@ -423,7 +425,7 @@ def init_gloo_process_group(backend: Backend, prefix_store: PrefixStore,
                             group_rank: int, group_size: int,
                             timeout: timedelta) -> ProcessGroup:
     """
-    Stateless init ProcessGroup with gloo backend compatible with 
+    Stateless init ProcessGroup with gloo backend compatible with
     different torch versions.
     """
     if is_torch_equal_or_newer("2.6"):
