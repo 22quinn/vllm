@@ -193,6 +193,7 @@ class RequestState:
         kv_transfer_params: Optional[dict[str, Any]] = None,
     ) -> Optional[Union[RequestOutput, PoolingRequestOutput]]:
 
+        logger.info(f"{self.request_id=}, {self.output_kind=}, {finish_reason=}, {stop_reason=}")
         finished = finish_reason is not None
         final_only = self.output_kind == RequestOutputKind.FINAL_ONLY
 
