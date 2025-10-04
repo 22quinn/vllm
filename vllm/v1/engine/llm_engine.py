@@ -274,6 +274,7 @@ class LLMEngine:
 
         # 1) Get EngineCoreOutput from the EngineCore.
         outputs = self.engine_core.get_output()
+        logger.info(f"{len(outputs.outputs)=}")
 
         # 2) Process EngineCoreOutputs.
         iteration_stats = IterationStats() if self.log_stats else None
@@ -294,6 +295,9 @@ class LLMEngine:
             )
             self.do_log_stats_with_interval()
 
+        logger.info(
+            f"EngineCore: {outputs.scheduler_stats=}, {iteration_stats=}, {processed_outputs.request_outputs=}"
+        )
         return processed_outputs.request_outputs
 
     def get_vllm_config(self):

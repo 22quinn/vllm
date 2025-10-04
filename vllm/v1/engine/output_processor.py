@@ -8,6 +8,7 @@ from typing import Any, Optional, Union, cast
 
 import torch
 
+from vllm.logger import init_logger
 from vllm.outputs import (CompletionOutput, PoolingOutput,
                           PoolingRequestOutput, RequestOutput)
 from vllm.sampling_params import RequestOutputKind
@@ -21,6 +22,8 @@ from vllm.v1.engine.logprobs import LogprobsProcessor
 from vllm.v1.engine.parallel_sampling import ParentRequest
 from vllm.v1.metrics.stats import (IterationStats, LoRARequestStates,
                                    RequestStateStats)
+
+logger = init_logger(__name__)
 
 
 class RequestOutputCollector:
@@ -446,6 +449,9 @@ class OutputProcessor:
             if request_output := req_state.make_request_output(
                     new_token_ids, pooling_output, finish_reason, stop_reason,
                     kv_transfer_params):
+                assert isinstance(request_output, RequestOutput)
+                logger.info(
+                    f"Request {req_id} metrics: {request_output.metrics}")
                 if req_state.queue is not None:
                     # AsyncLLM: put into queue for handling by generate().
                     req_state.queue.put(request_output)
