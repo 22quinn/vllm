@@ -46,8 +46,7 @@ from vllm.outputs import (ClassificationRequestOutput, EmbeddingRequestOutput,
                           ScoringRequestOutput)
 from vllm.plugins.io_processors import get_io_processor
 from vllm.pooling_params import PoolingParams
-from vllm.sampling_params import (BeamSearchParams, RequestOutputKind,
-                                  SamplingParams)
+from vllm.sampling_params import BeamSearchParams, SamplingParams
 from vllm.tasks import PoolingTask
 from vllm.transformers_utils.tokenizer import (AnyTokenizer, MistralTokenizer,
                                                get_cached_tokenizer,
@@ -90,7 +89,7 @@ class LLM:
             or videos from directories specified by the server file system.
             This is a security risk. Should only be enabled in trusted
             environments.
-        allowed_media_domains: If set, only media URLs that belong to this 
+        allowed_media_domains: If set, only media URLs that belong to this
             domain can be used for multi-modal inputs.
         tensor_parallel_size: The number of GPUs to use for distributed
             execution with tensor parallelism.
@@ -1504,10 +1503,10 @@ class LLM:
             raise ValueError("The lengths of prompts and lora_request "
                              "must be the same.")
 
-        for sp in params if isinstance(params, Sequence) else (params, ):
-            if isinstance(sp, SamplingParams):
-                # We only care about the final output
-                sp.output_kind = RequestOutputKind.FINAL_ONLY
+        # for sp in params if isinstance(params, Sequence) else (params, ):
+        #     if isinstance(sp, SamplingParams):
+        #         # We only care about the final output
+        #         sp.output_kind = RequestOutputKind.FINAL_ONLY
 
         # Add requests to the engine.
         it = prompts
