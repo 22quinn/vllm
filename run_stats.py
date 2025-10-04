@@ -17,6 +17,7 @@ sampling_params = SamplingParams(
     top_p=0.95,
     max_tokens=500,
     stop="is",
+    n=2,
     output_kind=RequestOutputKind.CUMULATIVE,
     # stop_token_ids=[5],
 )
