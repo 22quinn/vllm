@@ -46,8 +46,7 @@ from vllm.outputs import (ClassificationRequestOutput, EmbeddingRequestOutput,
                           ScoringRequestOutput)
 from vllm.plugins.io_processors import get_io_processor
 from vllm.pooling_params import PoolingParams
-from vllm.sampling_params import (BeamSearchParams, RequestOutputKind,
-                                  SamplingParams)
+from vllm.sampling_params import BeamSearchParams, SamplingParams
 from vllm.tasks import PoolingTask
 from vllm.transformers_utils.tokenizer import (AnyTokenizer, MistralTokenizer,
                                                get_cached_tokenizer,
