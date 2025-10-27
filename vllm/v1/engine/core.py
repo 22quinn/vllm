@@ -352,6 +352,7 @@ class EngineCore:
         # Try to schedule a new batch if the batch queue is not full, but
         # the scheduler may return an empty batch if all requests are scheduled.
         # Note that this is not blocking.
+        logger.info(f"{len(batch_queue)=}")
         assert len(batch_queue) < self.batch_queue_size
 
         model_executed = False
@@ -361,6 +362,9 @@ class EngineCore:
             batch_queue.appendleft((future, scheduler_output))
 
             model_executed = scheduler_output.total_num_scheduled_tokens > 0
+            logger.info(
+                f"{model_executed=}, {len(batch_queue)=}, {self.batch_queue_size=}, {batch_queue[-1][0].done()=}"
+            )
             if (
                 model_executed
                 and len(batch_queue) < self.batch_queue_size
@@ -371,19 +375,22 @@ class EngineCore:
                 return None, True
 
         elif not batch_queue:
+            logger.info("batch_queue is empty")
             # Queue is empty. We should not reach here since this method should
             # only be called when the scheduler contains requests or the queue
             # is non-empty.
             return None, False
 
         # Block until the next result is available.
+        logger.info("Block until the next result is available")
         future, scheduler_output = batch_queue.pop()
         with self.log_error_detail(scheduler_output):
             model_output = future.result()
 
-        engine_core_outputs = self.scheduler.update_from_output(
-            scheduler_output, model_output
+        engine_core_outputs: dict[int, EngineCoreOutputs] = (
+            self.scheduler.update_from_output(scheduler_output, model_output)
         )
+        logger.info(f"{len(engine_core_outputs)=}")
         return engine_core_outputs, model_executed
 
     def shutdown(self):
